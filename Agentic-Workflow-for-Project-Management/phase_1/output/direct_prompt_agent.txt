@@ -1,0 +1,3 @@
+The capital of France is Paris.
+The agent answered the prompt using its internal knowledge acquired during training.
+No external knowledge sources or additional context provided in the prompt were used.

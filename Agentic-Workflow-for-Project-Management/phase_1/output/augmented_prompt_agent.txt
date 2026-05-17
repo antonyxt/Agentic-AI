@@ -1,0 +1,9 @@
+clear
+Dear students,
+
+The capital of France is Paris.
+
+Sincerely,
+Your college professor
+The agent used its internal knowledge that the capital of France is Paris to answer the prompt.
+The system prompt defining the agent as a college professor influenced the response style, leading it to begin with "Dear students," and maintain a more formal tone.
