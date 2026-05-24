@@ -1,0 +1,166 @@
+import xml.etree.ElementTree as ET
+import os
+
+# Hardcoded file path
+UI_FILE_PATH = r"C:\CZ\zui\ZUi-Integration\FemtoPlanningViews\Source\Views\TreatmentPlanningSmilePanelView.ui"
+# Hardcoded file paths
+UPDATE_FILE_LIST = [r"C:\CZ\zui\ZUi-Integration\FemtoPlanningViews\Source\Views\TreatmentPlanningSmilePanelView.cpp",
+                     r"C:\CZ\zui\ZUi-Integration\FemtoPlanningViews\Source\Views\TreatmentPlanningSmilePanelView.h"]
+variableNames = {}
+
+def read_ui_file(filepath):
+    with open(filepath, "r", encoding="UTF-8") as file:
+        return file.read()
+
+def prettify_xml(root):
+    """Formats the XML output with proper indentation."""
+    import xml.dom.minidom
+    #xml_str = ET.tostring(root, encoding="utf-8").decode("utf-8")  # Ensure we decode bytes to string
+    parsed = xml.dom.minidom.parseString(root)
+    return parsed.toprettyxml(indent=" ", encoding="UTF-8").decode("UTF-8")
+
+def write_ui_file(filepath, content):
+    with open(filepath, "w", encoding="UTF-8") as file:
+        file.write(prettify_xml(content))
+
+def formContainer_updates(widget):
+    widget.set("class", "zui::components::FormContainer")
+    caption = widget.find("property[@name=\"Caption\"]" )
+    captionnAttribute = caption.find("string")
+
+    # Add new properties
+    # key value pair where key is the property name and value is the property value
+    new_props = {
+        ("formContainerInputType", "<enum>zui::Types::ZuiFormContainerInputType::ZuiInputStepper</enum>"),
+        ("labelText", f"<string>{captionnAttribute.text}</string>"),
+        ("sizePolicy", "<sizepolicy hsizetype=\"Preferred\" vsizetype=\"Maximum\"><horstretch>0</horstretch><verstretch>0</verstretch></sizepolicy>"),       
+    }
+    # rename property
+    # key value pair where key is the old property name and value is the new property name
+    rename_props = {}
+    # remove all properties
+    # list of property names to be removed
+    remove_props = [prop.get("name") for prop in widget.findall("property")]
+
+    # Variable name prefix appended to the object name
+    varNamePrefix = "zuiFormContainer"
+    return new_props, rename_props, remove_props, varNamePrefix
+
+def inputStepper_updates(widget):
+    widget.set("class", "zui::components::InputStepper")
+    # Add new properties
+    # key value pair where key is the property name and value is the property value
+    new_props = {
+        ("zuiInputStepperType", "<enum>zui::Types::ZuiInputStepperType::ZuiInputStepperInputField</enum>"),
+        ("showButtons", "<bool>false</bool>"),
+        ("alignRight", "<bool>true</bool>")
+    }
+    # rename property
+    # key value pair where key is the old property name and value is the new property name
+    rename_props = {    
+        "suffix": "unit",
+        "decimals": "decimalPlaces",
+        "maximum": "upperValue",
+        "value": "currentValue",
+    }
+    # remove all properties
+    # list of property names to be removed
+    remove_props = ["locale"]
+    # Variable name prefix appended to the object name
+    varNamePrefix = "zuiInputStepper"
+    return new_props, rename_props, remove_props, varNamePrefix
+
+def modify_widget(widget):
+    # Only modify if class is czm::neo::custom_widgets::widgets::NumberInput
+    if widget.get("class") == "czm::neo::custom_widgets::widgets::NumberInput":
+   
+        # InputZipper or FormContainer
+        captionProperty = widget.find("property[@name=\"Caption\"]" )
+        if captionProperty is not None: 
+            new_props, rename_props, remove_props, varNamePrefix = formContainer_updates(widget)
+        else:
+            new_props, rename_props, remove_props, varNamePrefix = inputStepper_updates(widget)
+
+        # Change class name
+        
+        # Rename or append object name prefix
+        old_name = widget.get("name")
+        new_name = ""
+        if old_name:
+            if old_name.startswith("lineEdit"):
+                new_name = varNamePrefix + old_name[len("lineEdit"):]
+            elif old_name.startswith("numberInput"):
+                new_name =  varNamePrefix + old_name[len("numberInput"):]
+            else:
+                new_name =  varNamePrefix + old_name
+            widget.set("name", new_name)
+            variableNames[old_name] = new_name
+    
+        # Modify properties rename or remove
+        for prop in list(widget.findall("property")):
+            propertyName = prop.get("name").lower()
+            if ( rename_props.get(propertyName) ) is not None: prop.set("name", rename_props.get(propertyName))
+            elif prop.get("name") in remove_props:
+                widget.remove(prop)
+    
+        # Add new properties
+        for name, value in new_props:
+            if not widget.find(f"property[@name='{name}']"):
+                prop = ET.Element("property", name=name)
+                prop.append(ET.fromstring(value))
+                widget.append(prop)
+
+def modify_tabstops(root):
+    for tabstop in root.findall(".//tabstop"):
+        if ( variableNames.get(tabstop.text) ) is not None: tabstop.text = variableNames.get(tabstop.text)
+
+def modify_ui_content(content):
+    root = ET.fromstring(content)
+    for widget in root.findall(".//widget"):
+        modify_widget(widget)
+    
+    modify_tabstops(root)
+    return root
+
+def modify_cpp_file(filepath):
+    print("Modifying file:", filepath)
+    try:
+        with open(filepath, "r", encoding="utf-8") as file:
+            lines = file.readlines()  # Read line by line to handle large files better
+
+        modified_lines = []
+        for line in lines:
+            for old_name, new_name in variableNames.items():
+                line = line.replace(old_name, new_name)
+            modified_lines.append(line)
+
+        # Backup the original file before writing
+        backup_path = filepath + ".bak"
+        os.rename(filepath, backup_path)
+        print(f"Backup created: {backup_path}")
+
+        with open(filepath, "w", encoding="utf-8") as file:
+            file.writelines(modified_lines)
+
+        print("Modification completed successfully.")
+
+    except Exception as e:
+        print(f"Error modifying file '{filepath}': {e}")
+
+def main():
+    original_content = read_ui_file(UI_FILE_PATH)
+    root = modify_ui_content(original_content)
+    #write_ui_file(UI_FILE_PATH, ET.tostring(root, encoding="unicode"))
+    print("Modifications applied successfully!")
+    xml_str = ET.tostring(root, encoding="unicode").splitlines()
+    truncatedLines = [str.strip() for str in xml_str]
+    xml_str = ''.join(truncatedLines)
+    print(prettify_xml(xml_str))
+    
+    write_ui_file(UI_FILE_PATH, xml_str)
+
+    #for file_name in UPDATE_FILE_LIST: modify_cpp_file(file_name)
+
+
+if __name__ == "__main__":
+    main()

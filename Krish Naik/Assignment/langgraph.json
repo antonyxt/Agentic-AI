@@ -1,0 +1,8 @@
+{
+  "dependencies":["."],
+  "graphs":{
+    "groq_agent":"./blogPost.py:agent"
+  },
+  "env":"../.env"
+
+}
