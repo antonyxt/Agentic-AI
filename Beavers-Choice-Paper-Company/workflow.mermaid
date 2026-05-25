@@ -1,0 +1,101 @@
+flowchart TD
+
+    %% =========================
+    %% Row 1 - Orchestrator
+    %% =========================
+    subgraph ORCH["Orchestration Layer"]
+        O1["Customer Request"]
+        O2["Orchestration Agent"]
+        O3{"Classification"}
+
+        O1 --> O2
+        O2 --> O3
+    end
+
+    %% =========================
+    %% Row 2 - Agents + Embedded Tools
+    %% =========================
+    subgraph AGENTS["Agent Layer"]
+
+        %% Inventory Agent
+        subgraph INV["Inventory Agent"]
+            I1["Check Stock"]
+            I2["Restock if Needed"]
+
+            subgraph INV_TOOLS["Tools"]
+                T1["get_all_inventory"]
+                T2["get_stock_level"]
+                T3["get_supplier_delivery_date"]
+                T4["create_transaction"]
+            end
+
+            I1 --> T1
+            I1 --> T2
+            I2 --> T3
+            I2 --> T4
+        end
+
+        %% Quoting Agent
+        subgraph QUOTE["Quoting Agent"]
+            Q1["Analyze Request"]
+            Q2["Generate Competitive Quote"]
+
+            subgraph QUOTE_TOOLS["Tools"]
+                T5["search_quote_history"]
+                T6["generate_financial_report"]
+            end
+
+            Q1 --> T5
+            Q2 --> T6
+        end
+
+        %% Sales Agent
+        subgraph SALES["Sales Finalization Agent"]
+            S1["Finalize Order"]
+            S2["Create Sales Transaction"]
+
+            subgraph SALES_TOOLS["Tools"]
+                T7["get_supplier_delivery_date"]
+                T8["create_transaction"]
+            end
+
+            S1 --> T7
+            S2 --> T8
+        end
+
+        %% Invoice Agent
+        subgraph INVOICE["Invoice Agent"]
+            IV1["Generate Invoice"]
+            IV2["Send Customer Response"]
+        end
+
+    end
+
+    %% =========================
+    %% Workflow Routing
+    %% =========================
+    O3 -- "INQUIRY" --> INV
+
+    O3 -- "ORDER" --> INV
+
+    INV --> D1{"Proceed With Order?"}
+
+    D1 -- "No" --> R1["Return Inventory Response"]
+
+    D1 -- "Yes" --> QUOTE
+    QUOTE --> SALES
+    SALES --> INVOICE
+    INVOICE --> R2["Final Invoice Response"]
+
+    %% =========================
+    %% Styling
+    %% =========================
+    classDef orchestrator fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px
+    classDef agent fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+    classDef tool fill:#fef3c7,stroke:#d97706,stroke-width:1px
+    classDef decision fill:#fee2e2,stroke:#dc2626,stroke-width:2px
+
+    class O1,O2,O3 orchestrator
+    class INV,QUOTE,SALES,INVOICE agent
+    class T1,T2,T3,T4,T5,T6,T7,T8 tool
+    class D1 decision
