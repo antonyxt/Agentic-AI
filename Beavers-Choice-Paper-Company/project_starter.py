@@ -278,6 +278,8 @@ def create_transaction(
         # Validate transaction type
         if transaction_type not in {"stock_orders", "sales"}:
             raise ValueError("Transaction type must be 'stock_orders' or 'sales'")
+         
+        print(f"FUNC (create_transaction):item_name: {item_name}, transaction_type: {transaction_type},units: {quantity},price: {price}, transaction_date:'{date_str}'")
 
         # Prepare transaction record as a single-row DataFrame
         transaction = pd.DataFrame([{
@@ -729,10 +731,26 @@ class InventoryResponse(BaseModel):
     answer: str
     proceed_with_order: bool
 
-class QuoteResponse(BaseModel):
+class QuoteItem(BaseModel):
+    product_name: str
+    quantity: int
     unit_price: float
-    total_price: float
+    line_total: float
+
+
+class QuoteResponse(BaseModel):
+    items: list[QuoteItem]
+
     currency: str
+
+    subtotal: float
+
+    discount_label: str | None = None
+    discount_percentage: float | None = None
+    discount_amount: float | None = None
+
+    grand_total: float
+
     remarks: str
     answer: str
 
@@ -976,19 +994,14 @@ quoting_agent = Agent(
 
     ### 5. Prepare the Response
 
-    Your response should clearly include:
-    - Product name(s)
-    - Quantity
-    - Unit price
-    - Total quoted price
-    - Currency (if applicable)
-    - Any discounts applied
-    - Relevant remarks or conditions
+    Return:
+    - itemized pricing
+    - subtotal
+    - discount details
+    - final grand total
+    - concise professional remarks
 
-    Examples of remarks:
-    - "Volume discount applied"
-    - "Pricing adjusted due to expedited delivery"
-    - "Limited stock availability may affect delivery schedule"
+    The "answer" field should contain a short customer-friendly quote summary.
 
     ---
 
@@ -1002,17 +1015,10 @@ quoting_agent = Agent(
     ---
 
     ## Output Format
+    Return ONLY valid JSON matching the provided Pydantic schema.
 
-    Return a JSON object using the following Pydantic schema:
-
-    ```python
-    class QuoteResponse(BaseModel):
-        unit_price: float
-        total_price: float
-        currency: str
-        remarks: str
-        answer: str
-    ```
+    Do not include markdown.
+    Do not include explanations outside JSON.
     """,
     tools=toolset_quoting_agent,
     output_type=QuoteResponse
