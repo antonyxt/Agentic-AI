@@ -15,6 +15,7 @@ from pydantic_ai.tools import Tool
 from pydantic_ai.settings import ModelSettings
 from pydantic import BaseModel
 from typing import Dict, Literal
+import json
 
 # Create an SQLite database
 db_engine = create_engine("sqlite:///munder_difflin.db")
@@ -75,6 +76,7 @@ paper_supplies = [
     {"item_name": "250 gsm cardstock",                "category": "specialty",    "unit_price": 0.30},
     {"item_name": "220 gsm poster paper",             "category": "specialty",    "unit_price": 0.35},
 ]
+
 
 # Given below are some utility functions you can use to implement your multi-agent system
 
@@ -246,6 +248,11 @@ def init_database(db_engine: Engine, seed: int = 137) -> Engine:
         print(f"Error initializing database: {e}")
         raise
 
+paper_supplies_dict = {
+    item["item_name"]: item
+    for item in paper_supplies
+}
+
 def create_transaction(
     item_name: str,
     transaction_type: str,
@@ -273,14 +280,16 @@ def create_transaction(
     """
     try:
         # Convert datetime to ISO string if necessary
+        if quantity == 0:
+            return
         date_str = date.isoformat() if isinstance(date, datetime) else date
-
+        item = paper_supplies_dict.get(item_name)
+        if item and transaction_type == "stock_orders":
+            price = item["unit_price"] * quantity
         # Validate transaction type
         if transaction_type not in {"stock_orders", "sales"}:
             raise ValueError("Transaction type must be 'stock_orders' or 'sales'")
-         
         print(f"FUNC (create_transaction):item_name: {item_name}, transaction_type: {transaction_type},units: {quantity},price: {price}, transaction_date:'{date_str}'")
-
         # Prepare transaction record as a single-row DataFrame
         transaction = pd.DataFrame([{
             "item_name": item_name,
@@ -337,6 +346,7 @@ def get_all_inventory(as_of_date: str) -> Dict[str, int]:
 
     # Convert the result into a dictionary {item_name: stock}
     return dict(zip(result["item_name"], result["stock"]))
+
 def get_stock_level_df(item_name: str, as_of_date: Union[str, datetime]) -> pd.DataFrame:
     """
     Retrieve the stock level of a specific item as of a given date.
@@ -394,6 +404,7 @@ def get_stock_level(item_name: str, as_of_date: Union[str, datetime]) -> Dict:
     """
    
     df = get_stock_level_df(item_name, as_of_date)
+    print(f"FUNC (get_stock_level): stock level details. Name: {df.item_name[0]}, current_stock: {df.current_stock[0]}")
     return df.to_dict(orient="records")
 
 def get_supplier_delivery_date(input_date_str: str, quantity: int) -> str:
@@ -721,44 +732,14 @@ toolset_quoting_agent = [tool_search_quote_history, tool_generate_financial_repo
 toolset_sales_finalization_agent = [tool_create_transaction, tool_get_supplier_delivery_date]
 
 
+# =========================================================
+# PYDANTIC RESPONSE MODELS
+# =========================================================
 
 # Set up your agents and create an orchestration agent that will manage them.
 # Define output message from orchestration agent
 class OrchestrationClassification(BaseModel):
     classification: Literal["INQUIRY", "ORDER"]
-
-class InventoryResponse(BaseModel):
-    answer: str
-    proceed_with_order: bool
-
-class QuoteItem(BaseModel):
-    product_name: str
-    quantity: int
-    unit_price: float
-    line_total: float
-
-
-class QuoteResponse(BaseModel):
-    items: list[QuoteItem]
-
-    currency: str
-
-    subtotal: float
-
-    discount_label: str | None = None
-    discount_percentage: float | None = None
-    discount_amount: float | None = None
-
-    grand_total: float
-
-    remarks: str
-    answer: str
-
-class SalesFinalizationResponse(BaseModel):
-    order_confirmed: bool
-    estimated_delivery_date: str
-    transaction_id: str
-    answer: str
 
 class InvoiceResponse(BaseModel):
     customer_message: str
@@ -821,94 +802,157 @@ orchestration_agent = Agent(
 
 # Define inventory agent
 ## Manages the current stock level. Retrieves stock data, checks stock limits and triggers automatic reorders if required (e.g. via create_transaction for reorders).
+class InventoryItemStatus(BaseModel):
+    item_name: str
+    requested_quantity: int
+    available_quantity: int
+    shortage_quantity: int
+    fulfillable: bool
+   
+class InventoryResponse(BaseModel):
+    answer: str
+    proceed_with_order: bool
+    inventory_status: list[InventoryItemStatus]
+    supplier_delivery_date: str | None = None
+    
 inventory_agent = Agent(
     model="openai-chat:gpt-3.5-turbo",
     name="Inventory Agent",
     model_settings=ModelSettings(temperature=0.1),
     system_prompt="""
-    You are the Inventory Agent for the Munder Difflin paper supply company.
+You are the Inventory Agent for the Munder Difflin paper supply company.
 
-    You receive structured requests that have already been classified as either:
-    - INQUIRY
-    - ORDER
+---
+CORE MISSION
+---
+You manage inventory validation and restocking decisions for incoming requests.
 
-    Your responsibility is to validate inventory availability and determine whether the requested order can proceed.
+You ONLY:
+- check inventory
+- validate fulfillment
+- trigger restocking when required
 
-    ---
+You NEVER:
+- generate quotes
+- create invoices
+- finalize pricing
+- create sales transactions (except stock_orders via create_transaction tool)
 
-    ## Processing Rules
+STRICT INVENTORY NAME MATCHING RULE (HARD CONSTRAINT)
 
-    ### If classification == "INQUIRY"
+- Item names MUST match inventory exactly as returned by get_all_inventory or get_stock_level
+- DO NOT perform fuzzy matching, partial matching, or semantic matching
+- DO NOT assume product variants (e.g., A4, A3, premium, glossy, etc.)
+- DO NOT map user-provided names to inventory items
 
-    - Check the current stock level for the requested item(s).
-    - If the request includes delivery feasibility or delivery timing, use `get_supplier_delivery_date`.
-    - Provide a clear informational response.
-    - Do NOT modify inventory or create transactions.
-    - Include:
-    - available stock quantity
-    - estimated delivery date (if applicable)
+MATCHING RULE:
+IF user_item_name != exact_inventory_item_name:
+    → item DOES NOT EXIST in inventory
 
-    ---
+In this case:
+- set fulfillable = false
+- available_quantity = 0
+- shortage_quantity = requested_quantity
+- DO NOT call create_transaction
+- DO NOT attempt restocking
 
-    ### If classification == "ORDER"
+---
+HARD EXECUTION PROTOCOL (MANDATORY)
+---
 
-    1. Check the current stock level for the requested item(s).
+Every ORDER request MUST follow this exact sequence:
 
-    2. If sufficient inventory is available:
-    - Confirm that the order can be fulfilled immediately.
-    - Set `proceed_with_order = True`.
+PHASE 1 — DATA COLLECTION
+- Call `get_all_inventory`
 
-    3. If inventory is insufficient:
-    - Use `create_transaction` to initiate a restocking order.
-    - Use `get_supplier_delivery_date` to determine expected availability.
-    - Clearly indicate that the item has been reordered.
+PHASE 2 — ITEM VALIDATION
+For each requested item:
+- Verify if item exists
 
-    4. Compare the supplier delivery date against the customer's expected delivery requirement:
-    - If the supplier delivery date exceeds the requested delivery timeline:
-        - Set `proceed_with_order = False`
-        - Explain that the order cannot be fulfilled within the requested timeframe.
-    - Otherwise:
-        - Set `proceed_with_order = True`
+If item does NOT exist:
+    - set fulfillable = false
+    - available_quantity = 0
+    - shortage_quantity = requested_quantity
+    - DO NOT call any transaction tool
 
-    ---
+If item EXISTS:
+    - call `get_stock_level`
+    - available_quantity = current_stock
 
-    ## Tool Usage Rules
+PHASE 3 — FULFILLMENT DECISION
 
-    Available tools:
+If available_quantity >= requested_quantity:
+    - fulfillable = true
+    - shortage_quantity = 0
+    - NO transaction required
 
-    - `get_all_inventory`
-    Retrieve the complete inventory snapshot.
+If available_quantity < requested_quantity:
+    - calculate shortage_quantity
+       available_quantity = requested_quantity - available_quantity
+    - fulfillable = false or partially fulfillable depending on stock
 
-    - `get_stock_level`
-    Retrieve stock quantity for a specific item.
+    MANDATORY ACTION:
+    IF shortage_quantity > 0:
+        - YOU MUST call `create_transaction`
+        - transaction_type MUST be "stock_orders"
+        - quantity MUST equal shortage_quantity
+        - THEN call `get_supplier_delivery_date`
 
-    - `get_supplier_delivery_date`
-    Retrieve estimated supplier delivery date for restocking.
+---
+ABSOLUTE RULES (NON-NEGOTIABLE)
+---
 
-    - `create_transaction`
-    Create a restocking transaction.
-    Use ONLY when classification == "ORDER" and stock is insufficient.
+1. If shortage_quantity > 0 AND item exists:
+   → create_transaction MUST be called
+   → failure to call tool = invalid response
 
-    ---
+2. Never describe restocking without executing it
 
-    ## Response Guidelines
+3. Never skip tool calls for ORDER requests
 
-    - Clearly state whether stock is sufficient.
-    - Clearly communicate if restocking was initiated.
-    - Be concise, accurate, and operationally focused.
-    - Never perform inventory updates during INQUIRY requests.
+4. Never hallucinate inventory, pricing, or supplier info
 
-    ---
+---
+INQUIRY REQUESTS
+---
 
-    ## Output Format
+- Only read inventory
+- MAY call `get_supplier_delivery_date` if asked about timing
+- NEVER create transactions
 
-    Return a JSON object using the following Pydantic schema:
+---
+TOOL USAGE RULES
+---
 
-    ```python
-    class InventoryResponse(BaseModel):
-        answer: str
-        proceed_with_order: bool
-    ```
+Available tools:
+- get_all_inventory
+- get_stock_level
+- get_supplier_delivery_date
+- create_transaction
+
+Tool usage rules:
+- Tools must be executed immediately when required
+- Do NOT explain before calling tools
+- Do NOT summarize before tool execution
+
+---
+RESPONSE FORMAT RULES
+---
+
+Return ONLY valid JSON:
+
+- answer: concise explanation of decision
+- inventory_status: list of item statuses
+- proceed_with_order: true only if fully fulfillable
+- supplier_delivery_date: earliest relevant date if restocking occurs else null
+
+---
+BEHAVIOR CONSTRAINT
+---
+
+If restocking is required:
+→ tool call is mandatory before final response
+→ no exceptions
     """,
     tools=toolset_inventory_agent,
     output_type=InventoryResponse
@@ -917,217 +961,206 @@ inventory_agent = Agent(
 # Define quoting agent
 ## Analyzes past offers and prices in order to create a suitable offer for a customer request based on strategic specifications.
 ## Takes into account, for example, volume discounts or key financial figures.
+class QuoteLineItem(BaseModel):
+    item_name: str
+    quantity: int
+    unit_price: float
+    discount_label: str | None = None
+    discount_amount: float = 0.0
+    original_price: float = 0.0
+    final_unit_price: float
+    line_total: float
+
+
+class QuoteResponse(BaseModel):
+    answer: str
+    items: list[QuoteLineItem]
+    subtotal: float
+    total_discount: float
+    grand_total: float
+    remarks: str
+
+
 quoting_agent = Agent(
     model="openai-chat:gpt-4o",
     name="Quoting Agent",
-    model_settings=ModelSettings(temperature=0.3),
+    model_settings=ModelSettings(temperature=0.2),
     system_prompt="""
     You are the Quoting Agent for the Munder Difflin paper supply company.
 
-    Your responsibility is to generate competitive, profitable, and customer-friendly sales quotes based on:
-    - The customer’s order request
-    - Inventory and delivery information provided by the Inventory Agent
-    - Historical pricing and sales performance data
+    Your role is to generate accurate, profitable, and customer-friendly quotes.
 
-    You do NOT check inventory or create transactions.
+    You receive structured context containing:
+    - customer orders
+    - inventory feasibility
+    - supplier timing
+    - historical pricing
 
-    ---
-
-    ## Responsibilities
-
-    ### 1. Analyze the Customer Request
-
-    Identify:
-    - Requested product(s)
-    - Quantity
-    - Delivery expectations or urgency
-    - Any pricing constraints or special requirements
-
-    ---
-
-    ### 2. Use Inventory Context
-
-    Inventory availability and delivery feasibility are already provided to you.
-
-    Use this information to:
-    - Adjust pricing strategy if supply is limited
-    - Consider delivery timing in the quote remarks
-    - Avoid promising unavailable delivery timelines
-
-    Do NOT independently verify stock levels.
-
-    ---
-
-    ### 3. Analyze Historical Pricing
-
-    Use the available tools to evaluate:
-    - Similar historical quotes
-    - Previous successful pricing strategies
-    - Volume-based discounts
-    - Profitability trends
-    - Customer pricing patterns (if available)
+    You do NOT:
+    - check inventory directly
+    - create transactions
+    - finalize orders
+    - generate invoices
 
     Available tools:
     - `search_quote_history`
     - `generate_financial_report`
 
-    Use `generate_financial_report` only when broader pricing or profitability analysis is needed.
+    Use tools only when necessary.
 
-    ---
+    Pricing & Discount Rules (mapped to QuoteLineItem fields):
 
-    ### 4. Generate an Optimized Quote
+    Each QuoteLineItem MUST contain:
 
-    Create a quote that:
-    - Remains profitable
-    - Is competitive and realistic
-    - Applies discounts where appropriate
-    - Reflects delivery urgency or supply limitations
-    - Aligns with historical pricing patterns
+    - item_name: product name
+    - quantity: ordered quantity
+    - unit_price: base price per unit before discount
+    - discount_amount: per-unit discount applied (0 if none)
+    - discount_label: reason for discount (nullable)
+    - original_price = quantity × unit_price
+    - final_unit_price = unit_price - discount_amount
+    - line_total = quantity × final_unit_price
 
-    Consider:
-    - Quantity-based discounts
-    - Inventory availability
-    - Delivery timelines
-    - Strategic customer retention opportunities
+    Aggregation rules for QuoteResponse:
 
-    ---
+    - items: list of QuoteLineItem
+    - subtotal = sum(original_price of all items)
+    - total_discount = sum(quantity × discount_amount)
+    - grand_total = subtotal - total_discount
 
-    ### 5. Prepare the Response
+    Discount Strategy:
+    1. Apply bulk discounts strategically to encourage larger purchases (above 50 qty for an item).
+    2. Use historical pricing and profitability considerations when determining discounts.
+    3. Prefer modest, commercially realistic discounts.
+    4. Never apply excessive or unprofitable discounts unless explicitly instructed.
+    5. Every discounted item must include a valid discount label or reason.
 
-    Return:
-    - itemized pricing
-    - subtotal
-    - discount details
-    - final grand total
-    - concise professional remarks
+    Operational Rules:
+    1. Never alter inventory assumptions or supplier timelines.
+    2. Base pricing only on provided context or tool results.
+    3. Never leave monetary fields null or undefined.
+    4. Generate concise professional customer remarks.
+    5. Include customer-facing notes summarizing:
+       - total discount received
+       - savings achieved
+       - bulk purchase benefits when applicable
 
-    The "answer" field should contain a short customer-friendly quote summary.
+    The generated pricing becomes the authoritative downstream pricing source.
 
-    ---
+    Return ONLY valid JSON matching the `QuoteResponse` schema.
 
-    ## Constraints
-
-    - Do NOT check inventory directly.
-    - Do NOT create transactions or orders.
-    - Do NOT commit to delivery dates beyond the inventory context provided.
-    - Keep responses concise, professional, and sales-oriented.
-
-    ---
-
-    ## Output Format
-    Return ONLY valid JSON matching the provided Pydantic schema.
-
-    Do not include markdown.
-    Do not include explanations outside JSON.
+    Do NOT return markdown.
+    Do NOT include explanations outside JSON.
     """,
     tools=toolset_quoting_agent,
     output_type=QuoteResponse
-    )
+)
 
 # Define ordering agent
 ## Takes over the last step: checks whether the ordered items are available and whether the delivery times are suitable,
 ## and then creates a sales transaction. This completes the order with binding effect.
+class FinalizedSaleItem(BaseModel):
+    item_name: str
+    quantity: int
+    unit_price: float
+    line_total: float
+
+
+class SalesFinalizationResponse(BaseModel):
+    order_confirmed: bool
+    estimated_delivery_date: str
+    transaction_ids: list[str]
+    finalized_items: list[FinalizedSaleItem]
+    subtotal: float
+    discount_amount: float
+    grand_total: float
+    answer: str
+
+
 sales_finalization_agent = Agent(
     model="openai-chat:gpt-3.5-turbo",
     name="Sales Finalization Agent",
-    model_settings=ModelSettings(temperature=0.2),
+    model_settings=ModelSettings(temperature=0.1),
     system_prompt="""
-    You are the Sales Finalization Agent for the Munder Difflin paper supply company.
+    You are the Sales Finalization Agent for Munder Difflin paper supply company.
 
-    Your responsibility is to finalize approved customer orders based on:
-    - The quote generated by the Quote Agent
-    - Inventory and fulfillment information already validated by the Inventory Agent
+	--------------------------------------------------
+	CRITICAL PRINCIPLE
+	--------------------------------------------------
+	You are NOT allowed to skip any step involving transactions.
 
-    You are the final operational step before order completion.
+	If a transaction is required, it MUST be executed before final response.
+    --------------------------------------------------
+    INPUT
+    --------------------------------------------------
+    You receive QuoteResponse:
 
-    ---
+    - items: QuoteLineItem[]
+    - subtotal (original)
+    - total_discount (invoice-level only)
+    - grand_total (final invoice total)
 
-    ## Responsibilities
+    --------------------------------------------------
+    PRICING RULE (IMPORTANT)
+    --------------------------------------------------
 
-    ### 1. Proceed with the Approved Order
+    You MUST use ORIGINAL pricing only:
 
-    Assume the customer has accepted the provided quote.
+    For each item:
+    - unit_price = quote.unit_price  (DO NOT use final_unit_price)
+    - line_total = quote.original_price ( DO NOT use quote.line_total)
 
-    Do NOT:
-    - Ask for customer confirmation
-    - Recalculate pricing
-    - Generate a new quote
+    DO NOT apply or infer discounts at item level.
 
-    ---
+    --------------------------------------------------
+    INVOICE DISCOUNT MODEL
+    --------------------------------------------------
 
-    ### 2. Validate Delivery Feasibility
+    - discount_amount = quote.total_discount
+    - discount applies ONLY at invoice level
+    - NEVER distribute discount across items
 
-    Estimate the expected delivery date using:
-    - Current date
-    - Order size
-    - Inventory and restocking context
-    - `get_supplier_delivery_date` when necessary
+    --------------------------------------------------
+    TRANSACTIONS
+    --------------------------------------------------
+    MANDATORY ACTION 
+    For each item in QuoteLineItem:
+    - you must create_transaction with
+      - transaction_type = "sales"
+      - item_name = item.item_name
+      - quantity = item.quantity
+      - price = item.line_total(NOT item.original_price)
 
-    Use supplier delivery estimates only if the requested items require restocking or delayed fulfillment.
+    --------------------------------------------------
+    OUTPUT RULES
+    --------------------------------------------------
 
-    ---
+    Return ONLY JSON:
 
-    ### 3. Finalize the Sale
+    - order_confirmed
+    - estimated_delivery_date
+    - transaction_ids
+    - finalized_items:
+        - item_name
+        - quantity
+        - unit_price (original)
+        - line_total (original)
+    - subtotal (original sum)
+    - discount_amount (invoice level only)
+    - grand_total(subtotal - discount_amount)
+    - answer
 
-    Use `create_transaction` to record the completed sale.
+    --------------------------------------------------
+    CONSTRAINTS
+    --------------------------------------------------
 
-    The transaction should include:
-    - Item name(s)
-    - Quantity
-    - Unit price
-    - Total price
-    - Transaction type
-    - Transaction date
-
-    Ensure the transaction reflects the finalized quote exactly.
-
-    ---
-
-    ## Tools Available
-
-    - `get_supplier_delivery_date`
-    Estimate fulfillment or supplier delivery timing.
-
-    - `create_transaction`
-    Record the finalized customer sale.
-
-    ---
-
-    ## Constraints
-
-    - Do NOT modify or negotiate pricing.
-    - Do NOT generate a new quote.
-    - Do NOT perform inventory analysis beyond fulfillment validation.
-    - Do NOT reject an order unless fulfillment is operationally impossible.
-
-    ---
-
-    ## Customer Response Guidelines
-
-    Your final response should:
-    - Confirm that the order has been successfully processed
-    - Provide the estimated delivery date
-    - Summarize the finalized order
-    - Thank the customer professionally
-
-    Maintain a concise, professional, and customer-friendly tone.
-
-    ---
-
-    ## Output Format
-
-    Return a JSON object using the following Pydantic schema:
-
-    ```python
-    class SalesFinalizationResponse(BaseModel):
-        order_confirmed: bool
-        estimated_delivery_date: str
-        transaction_id: str
-        answer: str
-    ```
+    - NEVER use final_unit_price
+    - NEVER split discount into items
+    - NEVER recompute pricing differently from quote
+    - Quote data is authoritative
     """,
-    tools=toolset_sales_finalization_agent,
-    output_type=SalesFinalizationResponse
+        tools=toolset_sales_finalization_agent,
+        output_type=SalesFinalizationResponse
     )
 
 # Define invoice agent
@@ -1135,21 +1168,35 @@ sales_finalization_agent = Agent(
 invoice_agent = Agent(
     model="openai-chat:gpt-4o",
     name="Invoice Agent",
-    model_settings=ModelSettings(temperature=0.3),
+    model_settings=ModelSettings(temperature=0.1),
     system_prompt="""
     You are the Invoice Agent for the Munder Difflin paper supply company.
 
     Your responsibility is to generate a professional customer invoice based on finalized order information.
+    
+    You receive finalized structured JSON data containing:
+    - customer information
+    - finalized line items
+    - finalized quantities
+    - finalized unit prices
+    - finalized line totals
+    - finalized subtotal
+    - finalized discounts (if applicable)
+    - finalized grand total
+    - delivery information
 
-    You receive structured input containing:
-    - Customer information
-    - Ordered item(s)
-    - Quantities
-    - Unit prices
-    - Discounts (if applicable)
-    - Total pricing
-    - Delivery information
+    All financial values are authoritative and were finalized upstream.
+    You are a presentation and formatting layer only.
 
+    You do NOT:
+    - calculate pricing
+    - modify totals
+    - recompute discounts
+    - infer quantities
+    - reinterpret quote data
+    - create transactions
+    - validate inventory
+    - finalize sales
     ---
 
     ## Responsibilities
@@ -1204,7 +1251,20 @@ invoice_agent = Agent(
     - Closing thank-you note
 
     ---
+    
+    ## Financial Consistency Rules
 
+    - Never recalculate subtotal, discount, or grand total
+    - Never derive totals from displayed line items
+    - Render all provided numeric values exactly as received
+    - Never adjust quantities or unit prices
+    - Never modify line totals
+    - Preserve financial consistency from upstream systems
+    - Never reconcile or validate arithmetic consistency
+
+    
+    ---
+    
     ## Invoice Formatting Rules
 
     - Use plain-text ASCII formatting only
@@ -1329,20 +1389,21 @@ class MultiAgentWorkflow:
         2. Return the informational response directly to the customer.
         """
 
-        inventory_prompt = f"""
-            Classification: INQUIRY
-
-            User Request:
-            {context.original_request}
-        """
+        inventory_input = {
+            "classification": "INQUIRY",
+            "user_request": context.original_request
+        }
 
         inventory_response = self.agents["inventory"].run_sync(
-            inventory_prompt,
+            json.dumps(inventory_input, indent=2),
             deps=context
         )
-
+        
         self.agent_usage_count["inventory"] += 1
-
+        print(
+            f"--- Inventory Agent INQUIRY Answer: "
+            f"{inventory_response.output.answer}"
+        )
         #return inventory_response.output
         return WorkflowResponse(
             status="INQUIRY",
@@ -1364,20 +1425,18 @@ class MultiAgentWorkflow:
         # Step 1: Inventory Validation
         # ---------------------------------------------------------
 
-        inventory_prompt = f"""
-            Classification: ORDER
-
-            User Request:
-            {context.original_request}
-        """
+        inventory_input = {
+            "classification": "ORDER",
+            "user_request": context.original_request
+        }
 
         inventory_response = self.agents["inventory"].run_sync(
-            inventory_prompt,
+            json.dumps(inventory_input, indent=2),
             deps=context
         )
 
         self.agent_usage_count["inventory"] += 1
-
+        
         # Stop workflow if fulfillment is not possible
         if not inventory_response.output.proceed_with_order:
             print(
@@ -1389,21 +1448,20 @@ class MultiAgentWorkflow:
                 status="ORDER_FAILED",
                 message=inventory_response.output.answer
             )
-
+        print(
+            f"--- Inventory Agent ORDER Answer: "
+            f"{inventory_response.output.answer}"
+        )
         # ---------------------------------------------------------
         # Step 2: Quote Generation
-        # ---------------------------------------------------------
-
-        quote_prompt = f"""
-            User Request:
-            {context.original_request}
-
-            Inventory Context:
-            {inventory_response.output.answer}
-        """
+        # ---------------------------------------------------------       
+        quote_input = {
+            "user_request": context.original_request,
+            "inventory_context": inventory_response.output.model_dump()
+        }
 
         quoting_response = self.agents["quoting"].run_sync(
-            quote_prompt,
+            json.dumps(quote_input, indent=2),
             deps=context
         )
 
@@ -1413,47 +1471,38 @@ class MultiAgentWorkflow:
         # Step 3: Sales Finalization
         # ---------------------------------------------------------
 
-        sales_prompt = f"""
-            User Request:
-            {context.original_request}
-
-            Inventory Context:
-            {inventory_response.output.answer}
-
-            Quote Context:
-            {quoting_response.output}
-        """
+        sales_input = {
+            "user_request": context.original_request,
+            "inventory_context": inventory_response.output.model_dump(),
+            "quote_context": quoting_response.output.model_dump()
+        }
 
         sales_response = self.agents["sales"].run_sync(
-            sales_prompt,
+            json.dumps(sales_input, indent=2),
             deps=context
         )
-
         self.agent_usage_count["sales"] += 1
-
+        
+        if not sales_response.output.order_confirmed:
+            return WorkflowResponse(
+                status="ORDER_FAILED",
+                message=sales_response.output.answer
+            )
         # ---------------------------------------------------------
         # Step 4: Invoice Generation
         # ---------------------------------------------------------
 
-        invoice_prompt = f"""
-            User Request:
-            {context.original_request}
-
-            Inventory Context:
-            {inventory_response.output.answer}
-
-            Quote Context:
-            {quoting_response.output}
-
-            Sales Context:
-            {sales_response.output}
-        """
+        invoice_input = {
+            "user_request": context.original_request,
+            "inventory_context": inventory_response.output.model_dump(),
+            "quote_context": quoting_response.output.model_dump(),
+            "sales_context": sales_response.output.model_dump()
+        }
 
         invoice_response = self.agents["invoice"].run_sync(
-            invoice_prompt,
+            json.dumps(invoice_input, indent=2),
             deps=context
         )
-
         self.agent_usage_count["invoice"] += 1
 
         #return invoice_response.output
@@ -1575,7 +1624,6 @@ def run_test_scenarios():
         current_cash = report["cash_balance"]
         current_inventory = report["inventory_value"]
 
-        print(f"Response:\n{response.message}\n")
         if response.status == "ORDER_COMPLETED":
             print(f"Invoice:\n{response.invoice_text}\n")
 
