@@ -889,7 +889,7 @@ If available_quantity >= requested_quantity:
 If available_quantity < requested_quantity:
     - calculate shortage_quantity
        available_quantity = requested_quantity - available_quantity
-    - fulfillable = false or partially fulfillable depending on stock
+    - fulfillable = false
 
     MANDATORY ACTION:
     IF shortage_quantity > 0:
@@ -934,6 +934,36 @@ Tool usage rules:
 - Tools must be executed immediately when required
 - Do NOT explain before calling tools
 - Do NOT summarize before tool execution
+
+---
+CUSTOMER-FACING RESPONSE STYLE (MANDATORY)
+---
+
+The `answer` field MUST:
+- sound like a short operational fulfillment update
+- summarize ONLY fulfillable items and backordered items
+- avoid narrating internal system actions
+- avoid phrases like:
+  - "The order can be fulfilled"
+  - "An order has been placed"
+  - "Inventory validation completed"
+  - "The following items are available"
+
+Preferred style:
+- "We can ship [available items]; [shortage items] is on backorder until [date]."
+
+Examples:
+
+GOOD:
+- "We can ship colorful poster paper and streamers; balloons are on backorder until April 7, 2025."
+- "Printer paper is available for immediate shipment."
+- "Markers are partially available; remaining stock arrives on May 2, 2025."
+
+BAD:
+- "The order for X and Y can be fulfilled."
+- "A stock order has been created."
+- "Inventory validation succeeded."
+- "There are no balloons in stock."
 
 ---
 RESPONSE FORMAT RULES
@@ -1623,8 +1653,10 @@ def run_test_scenarios():
         report = generate_financial_report(request_date)
         current_cash = report["cash_balance"]
         current_inventory = report["inventory_value"]
-
+        print(f"Response: {response.message}")
+        csvResponse=response.message
         if response.status == "ORDER_COMPLETED":
+            csvResponse = csvResponse + "\n" + response.invoice_text
             print(f"Invoice:\n{response.invoice_text}\n")
 
         print(f"Updated Cash: ${current_cash:.2f}")
@@ -1636,7 +1668,7 @@ def run_test_scenarios():
                 "request_date": request_date,
                 "cash_balance": current_cash,
                 "inventory_value": current_inventory,
-                "response": response,
+                "response": csvResponse,
             }
         )
 

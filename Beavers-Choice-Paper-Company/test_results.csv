@@ -1,21 +1,145 @@
 request_id,request_date,cash_balance,inventory_value,response
-1,2025-04-01,45048.3,4951.7,status='ORDER_FAILED' message='The requested paper supplies for the ceremony have been processed. A restocking order has been placed for A4 paper and colored paper. Cardstock is already available in sufficient quantity.' invoice_text=None
-2,2025-04-03,45048.3,4951.7,"status='ORDER_FAILED' message='The order for 500 sheets of colorful poster paper and 300 rolls of streamers can be fulfilled. However, there are no balloons in stock, and an order for 200 balloons has been placed for delivery on April 7, 2025.' invoice_text=None"
-3,2025-04-04,46213.3,4936.7,"status='ORDER_COMPLETED' message='Thank you for your order! We are pleased to confirm your purchase of 10,000 sheets of A4 paper, 5,000 sheets of A3 paper, and 500 reams of printer paper. Your supplies are scheduled for delivery by April 11, 2025. Please find your detailed invoice below.' invoice_text='Invoice No: INV-2026-001\nDate: 2025-04-04\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n10000 A4 paper                   $0.05           $500.00\n5000  A3 paper                   $0.06           $300.00\n500   Printer paper              $2.00           $1000.00\n\n----------------------------------------------------------------\n\nSubtotal:                                        $1800.00\nDiscount (Bulk order discount):                  -$150.00\nGrand Total:                                     $1650.00\n\nExpected Delivery Date: 2025-04-11\n\nThank you for your business!'"
-4,2025-04-05,46288.3,4861.7,"status='ORDER_COMPLETED' message='Thank you for your order! We are pleased to confirm your purchase of 500 sheets of high-quality, recycled cardstock and 250 sheets of A4 size printer paper. Your order will be partially fulfilled by April 15, 2025, with the remaining items arriving shortly after. Please find your detailed invoice below.' invoice_text='Invoice No: INV-2026-001\nDate: 2025-04-05\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n500   Cardstock                  $0.15           $75.00\n250   A4 size printer paper      $0.05           $12.50\n\n----------------------------------------------------------------\n\nSubtotal:                                        $87.50\nDiscount (Bulk purchase & Supplier delay):      -$12.50\nGrand Total:                                     $75.00\n\nExpected Delivery Date: 2025-04-09\n\nThank you for your business!'"
-5,2025-04-05,46288.3,4861.7,"status='ORDER_FAILED' message='The order for 500 sheets of 8.5""x11"" colored paper can be fulfilled. The order for 300 sheets of cardstock is partially fulfillable. The request for 200 rolls of decorative washi tape has been placed for restocking.' invoice_text=None"
-6,2025-04-06,46288.3,4861.7,status='ORDER_FAILED' message='The colorful construction paper is available in sufficient quantity. White printer paper is out of stock and will be restocked with 300 sheets. Cardstock is available in sufficient quantity.' invoice_text=None
-7,2025-04-07,46288.3,4861.7,status='ORDER_FAILED' message='The requested items are partially fulfillable due to limited stock. Transactions will be created for the shortage quantities.' invoice_text=None
-8,2025-04-07,46048.3,4861.7,"status='ORDER_FAILED' message='The order for A4 glossy paper, A4 matte paper, and A5 colored paper can be fulfilled. However, there is a shortage of A4 recycled paper.' invoice_text=None"
-9,2025-04-07,46048.3,4861.7,status='ORDER_FAILED' message='The requested A3 glossy paper and 100% recycled kraft paper envelopes are not available in the inventory. The order cannot be fulfilled for these items.' invoice_text=None
-13,2025-04-08,46083.05,4847.45,"status='ORDER_COMPLETED' message='Thank you for your order! We have confirmed your purchase of 500 sheets of A4 printing paper and 200 sheets of cardstock. Your supplies are expected to be delivered by April 12, 2025. Please find your invoice below.' invoice_text='Invoice No: INV-2026-001\nDate: 2025-04-08\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n500   A4 printing paper          $0.05           $25.00\n200   Cardstock                  $0.15           $30.00\n\n----------------------------------------------------------------\n\nSubtotal:                                        $55.00\nDiscount (Bulk order discount):                  -$4.50\nGrand Total:                                     $50.50\n\nExpected Delivery Date: 2025-04-12\n\nThank you for your business!'"
-12,2025-04-08,46081.05,4847.45,"status='ORDER_FAILED' message='The order for 200 sheets of colorful cardstock and 500 sheets of standard printer paper can be fulfilled. However, paper napkins are out of stock and a restocking order for 100 paper napkins has been placed.' invoice_text=None"
-10,2025-04-08,46081.05,4847.45,"status='ORDER_FAILED' message='The order for 500 sheets of high-quality glossy paper can be fulfilled. However, the order for 300 sheets of sturdy cardstock is out of stock and a restocking order has been placed.' invoice_text=None"
-11,2025-04-08,46081.05,4847.45,"status='ORDER_FAILED' message='The A4 matte paper is out of stock. A stock order for 300 sheets has been placed, and the estimated delivery date is April 12, 2025.' invoice_text=None"
-14,2025-04-09,44780.05,6148.45,status='ORDER_FAILED' message='The order for high-quality paper supplies has been partially fulfilled. Stock orders have been placed for the requested items.' invoice_text=None
-15,2025-04-12,43280.05,6148.45,"status='ORDER_FAILED' message='The order for 10,000 sheets of A4 white paper can be fulfilled. The order for 5,000 sheets of A3 colored paper is partially fulfillable due to limited stock. The request for 500 reams of cardboard is being processed for restocking.' invoice_text=None"
-16,2025-04-13,43268.85,6159.649999999999,status='ORDER_FAILED' message='The order for 500 sheets of White printer paper can be fulfilled. The order for 200 sheets of Colored paper is partially fulfillable. The order for 100 sheets of Large poster paper cannot be fulfilled from current stock.' invoice_text=None
-17,2025-04-14,43325.85,6109.65,"status='ORDER_COMPLETED' message='Thank you for your order with Munder Difflin. We are pleased to confirm your purchase of A4 white printer paper, A3 colored paper, paper napkins, and paper plates. Please note that paper cups are currently out of stock and will be available after April 18, 2025. Your order is expected to be delivered by April 18, 2025. The detailed invoice is included below for your reference.' invoice_text='Invoice No: INV-2026-001\nDate: 2025-04-14\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n1000  A4 white printer paper     $0.05           $45.00\n500   A3 colored paper           $0.10           $45.00\n100   Paper napkins              $0.02           $2.00\n500   Paper plates               $0.10           $45.00\n\n----------------------------------------------------------------\n\nSubtotal:                                        $152.00\nDiscount (Bulk purchase discount):               -$13.00\nGrand Total:                                     $139.00\n\nExpected Delivery Date: 2025-04-18\n\nThank you for your business!'"
-18,2025-04-14,43500.85,6089.65,"status='ORDER_COMPLETED' message='Thank you for your order! We are pleased to confirm your purchase of 500 sheets of high-quality white cardstock, 1000 sheets of standard printing paper, and 200 sheets of colored paper in assorted colors. Your supplies are expected to be delivered by April 21, 2025. Please find your detailed invoice below.' invoice_text='Invoice No: INV-2026-001\nDate: 2025-04-14\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n500   Sturdy cardstock           $0.15           $75.00\n1000  White printer paper        $0.10           $100.00\n200   Colored paper              $0.10           $20.00\n\n----------------------------------------------------------------\n\nSubtotal:                                        $195.00\nDiscount (Bulk purchase discount):               -$20.00\nGrand Total:                                     $175.00\n\nExpected Delivery Date: 2025-04-21\n\nThank you for your business!'"
-19,2025-04-15,44183.35,6089.65,"status='ORDER_COMPLETED' message='Thank you for your order! We are pleased to confirm your purchase of A4 glossy paper, A3 matte paper, and cardstock. Your items are expected to be delivered by April 19, 2025. Please find your detailed invoice below.' invoice_text='Invoice No: INV-2026-001\nDate: 2023-11-29\n\nBill To:\nName: <placeholder>\nAddress: <placeholder>\nEmail: <placeholder>\n\n----------------------------------------------------------------\n\nQty   Description                Unit Price      Line Total\n\n2000  A4 glossy paper            $0.20           $360.00\n1500  A3 matte paper             $0.25           $337.50\n1000  Cardstock                  $0.15           $135.00\n\n----------------------------------------------------------------\n\nSubtotal:                                        $925.00\nDiscount (Bulk purchase discount):               -$92.50\nGrand Total:                                     $832.50\n\nExpected Delivery Date: 2025-04-19\n\nThank you for your business!'"
-20,2025-04-17,43433.35,6089.65,"status='ORDER_FAILED' message='The order for flyers can be fulfilled. However, there are no available tickets in stock. The supplier delivery date for the tickets is April 24, 2025.' invoice_text=None"
+1,2025-04-01,45059.7,4940.299999999999,"We can ship Cardstock and Colored paper; A4 glossy paper is on backorder until April 5, 2025."
+2,2025-04-03,45059.7,4940.299999999999,"We can ship colorful poster paper and streamers; balloons are on backorder until April 7, 2025."
+3,2025-04-04,45059.7,4940.299999999999,We can ship A4 paper; A3 paper and Printer paper are on backorder.
+4,2025-04-05,45139.7,4852.8,"Thank you for your order! We are pleased to confirm your purchase of 500 sheets of high-quality, recycled cardstock in various colors and 250 sheets of A4 size printer paper. Your order is expected to be delivered by April 9, 2025. Please find your detailed invoice below.
+Invoice No: INV-2026-001
+Date: 2025-04-05
+
+Bill To:
+Name: <placeholder>
+Address: <placeholder>
+Email: <placeholder>
+
+----------------------------------------------------------------
+
+Qty   Description                Unit Price      Line Total
+
+500   Cardstock                  $0.15           $75.00
+250   A4 paper                   $0.05           $12.50
+
+----------------------------------------------------------------
+
+Subtotal:                                        $87.50
+Discount (Bulk purchase discount):               -$7.50
+Grand Total:                                     $80.00
+
+Expected Delivery Date: 2025-04-09
+
+Thank you for your business!"
+5,2025-04-05,45203.95,4788.55,"Thank you for your order! We have confirmed your purchase of 500 sheets of colored paper and 95 sheets of cardstock. Please note that the decorative washi tape is on backorder and will be shipped after April 9, 2025. Your expected delivery date for the available items is April 9, 2025. The detailed invoice is included below.
+Invoice No: INV-2026-001
+Date: 2025-04-05
+
+Bill To:
+Name: <placeholder>
+Address: <placeholder>
+Email: <placeholder>
+
+----------------------------------------------------------------
+
+Qty   Description                Unit Price      Line Total
+
+500   Colored paper              $0.10           $50.00
+ 95   Cardstock                  $0.15           $14.25
+
+----------------------------------------------------------------
+
+Subtotal:                                        $104.25
+Discount (Bulk purchase discount):               -$5.00
+Grand Total:                                     $99.25
+
+Expected Delivery Date: 2025-04-09
+
+Thank you for your business!"
+6,2025-04-06,45203.95,4788.55,"We can ship colorful construction paper; white printer paper is on backorder until April 10, 2025; cardstock is not available."
+7,2025-04-07,45203.95,4788.55,"We can ship 100 lb cover stock, Large poster paper (24x36 inches); A4 glossy paper is on backorder until April 11, 2025. A3 paper is on backorder until April 11, 2025."
+8,2025-04-07,45663.95,4788.55,"Thank you for your order! We are pleased to confirm your purchase of A4 glossy paper, A4 matte paper, A5 colored paper, and A4 recycled paper. Your order is expected to be delivered by April 14, 2025. Please find your detailed invoice below.
+Invoice No: INV-2026-001
+Date: 2025-04-07
+
+Bill To:
+Name: <placeholder>
+Address: <placeholder>
+Email: <placeholder>
+
+----------------------------------------------------------------
+
+Qty   Description                Unit Price      Line Total
+
+500   A4 glossy paper            $0.20           $100.00
+1000  A4 matte paper             $0.05           $50.00
+2000  A5 colored paper           $0.10           $200.00
+3000  A4 recycled paper          $0.05           $150.00
+
+----------------------------------------------------------------
+
+Subtotal:                                        $500.00
+Discount:                                        -$40.00
+Grand Total:                                     $460.00
+
+Expected Delivery Date: 2025-04-14
+
+Thank you for your business!"
+9,2025-04-07,45663.95,4788.55,"We can ship white printer paper; A3 glossy paper and 100% recycled kraft paper envelopes are on backorder until April 11, 2025."
+13,2025-04-08,45633.95,4818.55,"We can ship A4 paper; Cardstock is on backorder until April 12, 2025."
+12,2025-04-08,45674.95,4788.55,"Thank you for your order! We are pleased to confirm the purchase of 200 sheets of colorful cardstock, 300 sheets of standard printer paper, and 100 paper napkins. Your supplies will be delivered by April 9, 2025. Please note that the paper napkins will be shipped separately after April 9, 2025. The detailed invoice is included below.
+Invoice No: INV-2026-001
+Date: 2025-04-08
+
+Bill To:
+Name: <placeholder>
+Address: <placeholder>
+Email: <placeholder>
+
+----------------------------------------------------------------
+
+Qty   Description                Unit Price      Line Total
+
+200   Cardstock                  $0.15           $30.00
+300   White printer paper        $0.05           $15.00
+100   Paper napkins              $0.02           $2.00
+
+----------------------------------------------------------------
+
+Subtotal:                                        $47.00
+Discount (Bulk purchase discount):               -$4.00
+Grand Total:                                     $43.00
+
+Expected Delivery Date: 2025-04-09
+
+Thank you for your business!"
+10,2025-04-08,45629.95,4833.55,"We can ship glossy paper; cardstock is on backorder until April 12, 2025."
+11,2025-04-08,45629.95,4833.55,"We can ship A4 matte paper; A3 glossy paper is on backorder until April 15, 2025."
+14,2025-04-09,45599.85,4758.65,"Thank you for your order! We are pleased to confirm your purchase of 5,000 sheets of A4 paper, 2,000 sheets of colored paper, and 500 sheets of cardstock. Your supplies are expected to be delivered by April 16, 2025. Please find your detailed invoice below.
+Invoice No: INV-2026-001
+Date: 2025-04-09
+
+Bill To:
+Name: <placeholder>
+Address: <placeholder>
+Email: <placeholder>
+
+----------------------------------------------------------------
+
+Qty   Description                Unit Price      Line Total
+
+5000  A4 paper                   $0.05           $200.00
+2000  Colored paper              $0.10           $160.00
+500   Cardstock                  $0.15           $60.00
+
+----------------------------------------------------------------
+
+Subtotal:                                        $525.00
+Discount (Bulk order discount):                  -$105.00
+Grand Total:                                     $420.00
+
+Expected Delivery Date: 2025-04-16
+
+Thank you for your business!"
+15,2025-04-12,45599.85,4758.65,"We cannot fulfill the order for A4 white paper, A3 colored paper, and cardboard at this time."
+16,2025-04-13,45599.85,4758.65,"We can't fulfill the order for A4 printer paper, colorful construction paper, and poster board."
+17,2025-04-14,45599.85,4758.65,We can ship nothing; all items are out of stock.
+18,2025-04-14,45599.85,4758.65,"We cannot fulfill the order for high-quality white cardstock, standard printing paper, and colored paper as they are not available in the inventory."
+19,2025-04-15,45449.85,4908.649999999999,"We can ship A4 glossy paper and A3 paper; Cardstock is on backorder until April 19, 2025."
+20,2025-04-17,45449.85,4908.649999999999,"We cannot fulfill the order for 5,000 flyers, 2,000 posters, and 10,000 tickets as they are currently out of stock."
